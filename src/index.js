@@ -1,5 +1,5 @@
 const debug = require('debug')('metalsmith:transclude-transform');
-const async = require('async');
+const _ = require('lodash');
 const path = require('path');
 const match = require('multimatch');
 
@@ -22,15 +22,13 @@ module.exports = plugin;
 function plugin(options) {
   const { patterns = ['**/*.md'], permalinks = false, folders = false } = options || {};
 
-  return function transclude_transform(files, metalsmith, done) {
-    const process = (file, key, cb) => {
-      if (match(key, patterns).length === 0) {
-        debug('skip', key);
-        return cb(); // do nothing
-      }
+  return function transclude_transform(files, metalsmith) {
+    const transclusion = /\s:\[.*\]\((\S*)\s?(\S*)\)/g;
 
+    const transform = (file, key) => {
       const resolveFolders = (url, source, placeholder) => {
         debug('>>> resolveFolders        :', url);
+        debug('>>> source                :', source);
         const targetKey = path.join(path.dirname(key), url);
         const matches = Object.keys(files).filter(key => key.startsWith(targetKey));
         debug('>>> Using targetKey       :', targetKey);
@@ -61,15 +59,31 @@ function plugin(options) {
         return content;
       };
 
-      const transclusion = /\s:\[.*\]\((\S*)\s?(\S*)\)/g;
-
       const replacer = (placeholder, url) => resolveFolders(url, key, placeholder) || placeholder;
 
       const contents = file.contents.toString().replace(transclusion, replacer);
 
-      return cb(null, { ...file, contents: new Buffer(contents) });
+      return { ...file, contents: new Buffer(contents) };
     };
 
+    const res = _.chain(files)
+      .omitBy((file, key) => match(key, patterns).length === 0)
+      .mapValues(transform)
+      .value();
+
+    console.log('res', res);
+
+    Object.keys(files).forEach(key => {
+      // debug('<< File keys: ', Object.keys(files[key]));
+      // debug('<< Res keys: ', Object.keys(res[key]));
+      if (res[key]) {
+        files[key] = res[key];
+      } else {
+        delete files[key];
+      }
+    });
+
+    return;
     // const process_old = (file, key, cb) => {
     //
     //   const resolvePermalinks = (url, source, placeholder) => {
@@ -138,19 +152,19 @@ function plugin(options) {
     //     return cb(null, { ...file, contents: new Buffer(result) });
     //   });
     // };
-
-    async.mapValuesSeries(files, process, (err, res) => {
-      if (err) throw err;
-      Object.keys(files).forEach(key => {
-        // debug('<< File keys: ', Object.keys(files[key]));
-        // debug('<< Res keys: ', Object.keys(res[key]));
-        if (res[key]) {
-          files[key] = res[key];
-        } else {
-          delete files[key];
-        }
-      });
-      done();
-    });
+    //
+    // async.mapValuesSeries(files, transform, (err, res) => {
+    //   if (err) throw err;
+    //   Object.keys(files).forEach(key => {
+    //     // debug('<< File keys: ', Object.keys(files[key]));
+    //     // debug('<< Res keys: ', Object.keys(res[key]));
+    //     if (res[key]) {
+    //       files[key] = res[key];
+    //     } else {
+    //       delete files[key];
+    //     }
+    //   });
+    //   done();
+    // });
   };
 }
