@@ -26,6 +26,8 @@ function plugin(options) {
     const transclusion = /\s:\[.*\]\((\S*)\s?(\S*)\)/g;
 
     const transform = (file, key) => {
+      if (match(key, patterns).length === 0) return file;
+
       const resolveFolders = (url, source, placeholder) => {
         debug('>>> resolveFolders        :', url);
         debug('>>> source                :', source);
@@ -67,7 +69,6 @@ function plugin(options) {
     };
 
     const res = _.chain(files)
-      .omitBy((file, key) => match(key, patterns).length === 0)
       .mapValues(transform)
       .value();
 
