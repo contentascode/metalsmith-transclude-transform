@@ -28,6 +28,6 @@
   "dependencies": {
     "debug": "^2.2.0",
     "lodash": "^4.17.4",
-    "multimatch": "^2.1.0"
+    "multimatch": "^7.0.0"
   }
 }
